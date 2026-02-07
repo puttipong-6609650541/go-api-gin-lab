@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -45,4 +46,25 @@ func (h *StudentHandler) CreateStudent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, student)
+}
+
+func (h *StudentHandler) UpdateStudent(c *gin.Context) {
+	var student models.Student
+
+	id := c.Param("id")
+
+	if err := c.ShouldBindJSON(&student); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	student.Id = id
+	fmt.Println(id)
+
+	if err := h.Service.UpdateStudent(student); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, student)
 }

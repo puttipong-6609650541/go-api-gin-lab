@@ -20,3 +20,7 @@ func (s *StudentService) GetStudentByID(id string) (*models.Student, error) {
 func (s *StudentService) CreateStudent(student models.Student) error {
 	return s.Repo.Create(student)
 }
+
+func (s *StudentService) UpdateStudent(student models.Student) error {
+	return s.Repo.Update(student)
+}

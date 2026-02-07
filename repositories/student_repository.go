@@ -3,6 +3,8 @@ package repositories
 import (
 	"database/sql"
 
+	"fmt"
+
 	"example.com/student-api/models"
 )
 
@@ -46,4 +48,20 @@ func (r *StudentRepository) Create(s models.Student) error {
 		s.Id, s.Name, s.Major, s.GPA,
 	)
 	return err
+}
+
+func (r *StudentRepository) Update(s models.Student) error {
+	query := "UPDATE students SET name = ?, major = ?, gpa = ? WHERE id = ?"
+
+	result, err := r.DB.Exec(query, s.Name, s.Major, s.GPA, s.Id)
+	if err != nil {
+		return err
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("no student found with id %d", s.Id)
+	}
+
+	return nil
 }
