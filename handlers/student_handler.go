@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -17,7 +17,7 @@ type StudentHandler struct {
 func (h *StudentHandler) GetStudents(c *gin.Context) {
 	students, err := h.Service.GetStudents()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch students"})
 		return
 	}
 	c.JSON(http.StatusOK, students)
@@ -36,35 +36,60 @@ func (h *StudentHandler) GetStudentByID(c *gin.Context) {
 func (h *StudentHandler) CreateStudent(c *gin.Context) {
 	var student models.Student
 	if err := c.ShouldBindJSON(&student); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
 	if err := h.Service.CreateStudent(student); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// Validation error จาก service ส่งกลับเป็น 400 <-- 
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, student)
 }
 
+// UpdateStudent รับ PUT /students/:id
+// อัปเดต name, major, gpa ของนักศึกษาตาม id
 func (h *StudentHandler) UpdateStudent(c *gin.Context) {
+	id := c.Param("id") // ดึง id จาก URL เช่น /students/66090003
+
 	var student models.Student
-
-	id := c.Param("id")
-
+	// ShouldBindJSON อ่าน JSON body และแปลงเป็น struct
 	if err := c.ShouldBindJSON(&student); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	student.Id = id
-	fmt.Println(id)
-
-	if err := h.Service.UpdateStudent(student); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	updated, err := h.Service.UpdateStudent(id, student)
+	if err != nil {
+		// ตรวจสอบว่า error มาจาก "not found" หรือ validation
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		} else {
+			// เป็น validation error เช่น gpa ไม่ถูกต้อง
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
-	c.JSON(http.StatusOK, student)
+	c.JSON(http.StatusOK, updated)
+}
+
+// DeleteStudent รับ DELETE /students/:id
+// ลบนักศึกษาตาม id และส่ง 204 No Content กลับ
+func (h *StudentHandler) DeleteStudent(c *gin.Context) {
+	id := c.Param("id")
+
+	if err := h.Service.DeleteStudent(id); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete student"})
+		}
+		return
+	}
+
+	// 204 No Content = สำเร็จ แต่ไม่มี body ส่งกลับ
+	c.Status(http.StatusNoContent)
 }
